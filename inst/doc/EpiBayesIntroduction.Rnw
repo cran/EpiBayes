@@ -1,0 +1,366 @@
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{Disease Freedom with EpiBayes}
+
+\documentclass[11pt]{article}
+
+%Packages =====================================================%
+\usepackage[table,usenames,dvipsnames]{xcolor} %For colors! (loaded before other packages so it works properly)
+%\usepackage{amsmath,amsthm,amssymb,mathtools,mathabx}
+\usepackage[left=1in,right=1in,top=1in,bottom=1in,headsep=0.2in]{geometry}
+%\usepackage{aliascnt}
+\usepackage[hyperfootnotes=false,colorlinks=true,linkcolor=blue,citecolor=magenta,linktoc=page]{hyperref}
+\usepackage{titling}
+\usepackage{datetime}
+\usepackage{booktabs} %For book-like tables
+\usepackage{caption} %For nice caption spacing
+%\usepackage{arydshln} %For dashed/dotted lines in tables and arrays
+%\usepackage{pdflscape} %For landscape tables
+%\usepackage{afterpage} %To eliminate extra page problem with landscape tables
+%\usepackage{url} %For nice formatting of URL's
+%\usepackage{subcaption} %For captions within subfigures
+%\usepackage{multicol} %For multiple columns on a page/in environments
+%\usepackage{tikz} %For drawing
+%\usepackage{Sweave}
+
+%To do notes for easy editing =====================================================%
+%\usepackage[draft]{todonotes}
+%\usepackage[disable]{todonotes} %Disables todonotes
+
+%Renew commands =====================================================%
+\renewcommand{\bar}{\widebar}
+\renewcommand{\hat}{\widehat}
+\renewcommand{\tilde}{\widetilde}
+\renewcommand\arraystretch{1.3}% (MyValue=1.0 is for standard spacing)
+%\renewcommand[1]{\section}{\section #1 \label #1}
+\newcommand{\newpropto}{~ \propto ~}
+
+%New commands =====================================================%
+\newcommand{\probrightarrow}{\xrightarrow[n\rightarrow\infty]{P}}
+\newcommand{\distrightarrow}{\xrightarrow[n\rightarrow\infty]{d}}
+\newcommand{\norm}[1]{\lvert \lvert #1 \rvert \rvert}
+\newcommand{\bs}{\boldsymbol}
+\newcommand{\tablebreak}[2][c]{\begin{tabular}[#1]{@{}l@{}}#2 \end{tabular}} %For multiple lines within a table cell
+%\newcommand*{\medcap}{\mathbin{\scalebox{1.5}{\ensuremath{\cap}}}} %For making \cap a more attractive size
+\newcommand\numberthis{\addtocounter{equation}{1}\tag{\theequation}} %For numbering specific equations in align*
+%\newcommand{\myplus}{\mathord{\begin{tikzpicture}[baseline=0ex, line width=2, scale=0.13] \draw (1,0) -- (1,2); \draw (0,1) -- (2,1); \end{tikzpicture}}} %Custom plus sign (bolded)
+%\newcommand{\myminus}{\mathord{\begin{tikzpicture}[baseline=0ex, line width=2, scale=0.13] \draw (0,1) -- (2,1); \end{tikzpicture}}} %Custom minus sign (bolded)
+%
+%\newcommand\mycaption[2]{\def\captiontemp{#2}\caption[#1]{\protect\captiontemp}}
+
+%%Operators =====================================================%
+%\DeclareMathOperator{\tr}{tr}
+%\DeclareMathOperator{\Var}{Var}
+%\DeclareMathOperator{\SD}{SD}
+%\DeclareMathOperator{\SE}{SE}
+%\DeclareMathOperator{\VIF}{VIF}
+%\DeclareMathOperator{\SSE}{SSE}
+%\DeclareMathOperator{\SSR}{SSR}
+%\DeclareMathOperator{\SST}{SST}
+%\DeclareMathOperator{\MSE}{MSE}
+%\DeclareMathOperator{\Bias}{Bias}
+%\DeclareMathOperator{\Length}{Length}
+%\DeclareMathOperator{\Cov}{Cov}
+%\DeclareMathOperator{\Cor}{Cor}
+%\DeclareMathOperator{\ARE}{ARE}
+%\DeclareMathOperator{\argmax}{arg\,max}
+%
+%%Pre-document declarations =====================================================%
+%\definecolor{tabgray}{gray}{0.9} %Color for tables
+%\setlength\dashlinedash{2pt} %Dashed line dot size
+%\setlength\dashlinegap{2.0pt} %Dashed line gap size
+%
+%%Define some colors from http://www.colorcombos.com/color-schemes
+%%\definecolor{hawkesblue}{HTML}{CEEBFB}
+%%\definecolor{sailblue}{HTML}{A3D6F5}
+%\definecolor{fountainblue}{HTML}{66A7C5}
+%\definecolor{lightblue}{HTML}{3862C6} %{020731} %{67C5C2}
+%\definecolor{pomegranate}{HTML}{C84127} %{EE3233}
+%\definecolor{ebb}{HTML}{F0ECEB}
+%\definecolor{nevada}{HTML}{B4A28F}%{7C7062}%{6C7476}
+%\definecolor{goblin}{HTML}{41924B}
+%\definecolor{goldensun}{HTML}{FDB813}
+%\definecolor{cedar}{HTML}{3D2117}
+%\definecolor{charcoal}{HTML}{473E3F}
+%\definecolor{coneorange}{HTML}{FF7221}
+\definecolor{tabgray}{gray}{0.9} %Color for tables
+
+%\allowdisplaybreaks
+
+%===========================================================================================%
+%Begin document
+%===========================================================================================%
+
+\begin{document}
+
+%Title setup =====================================================%
+\setlength{\droptitle}{-1in}
+\pretitle{\begin{flushright}\LARGE}
+\posttitle{\end{flushright}}
+\preauthor{\begin{flushright}}
+\postauthor{\end{flushright}}
+\predate{\begin{flushright}\large}
+\postdate{\end{flushright}}
+
+\usdate %Format date to be: Month Day, Year 
+
+\title{EpiBayes 2-Level Models Vignette}
+\author{Matt Branan}
+\date{Updated: \today}
+
+\maketitle
+
+<<setup, include=FALSE>>=
+library(knitr)
+#opts_chunk$set(cache=TRUE, autodep=TRUE, fig.width=5, fig.height=5)
+@
+
+%===========================================================================================%
+%Setting up the Models in R
+%===========================================================================================%
+\section{Setting up the Models in R} \label{sect:Setting up the Models in R}
+
+Run this code once to load the proper packages.
+
+<<package_loading, hide=TRUE, error=FALSE, warning=FALSE, message=FALSE>>=
+library(epiR)  # For the BetaBuster function
+library(compiler)  # To compile the larger functions for computational speed
+library(coda)  # For processing Bayesian model output
+library(shape)  # For nice colorbar legends
+library(scales)  # For transparent colors
+@
+
+% Note: change where this file is stored in the future
+Next, we need to make sure that our package is installed and that the models we will be using are loaded into R's working memory. The file \texttt{EpiBayes\_0.0.1.tar.gz} can be found in our shared Dropbox folder under \texttt{ref $\rightarrow$ Matt Documents}. You will need to make sure that you point R to the actual file using the \texttt{setwd} function. For example, if I knew that the file containing the models was stored somewhere on my Mac (using OSX 10.6.8), then I would make sure that the R working directory pointed to the folder containing our file and execute: 
+
+<<model_source, eval = FALSE>>=
+install.packages("EpiBayes_0.0.1", type = "source", repos = NULL)  # Make sure the 
+	version is correct and the working directory is pointed to where the .tar.gz 
+	file is stored
+library(EpiBayes)  # Load the package
+@
+
+Before we actually get our hands dirty with the models, we will visit each briefly to get ourselves familiar with the arguments of each and the potential uses of the models.
+
+%===========================================================================================%
+%Argument Descriptions and Model Uses
+%===========================================================================================%
+\section{Argument Descriptions and Model Uses} \label{sect:Argument Descriptions and Model Uses}
+
+We have code for two models:
+
+\begin{itemize}
+	\item[a.] \texttt{EpiBayes\_ns}: the hierarchical Bayesian model with n(o) s(torage). This model stores only what is necessary to investigate the simulation results and posterior inference on cluster-level prevalences. No other parameters are tracked and stored in the MCMC chain and so no diagnostics can be investigated. This model is faster than model (b)
+	\item[b.] \texttt{EpiBayes\_s}: the hierarchical Bayesian model with s(torage). This model stores all realizations of all parameters listed in Section \ref{subsect:Storage Model}. Diagnostics can be checked with this model, though it is slower to execute.
+\end{itemize}
+
+Other than the storage differences and the implied differences in computational speed, there are no other differences between the two models. Both are designed to implement the models described in \textit{EpiBayes Proposal (3-level)} in our Dropbox folder and is constructed in the spirit of Branscum et al. (2006) \cite{Branscum_2006}. 
+
+These models are Bayesian hierarchical models that can serve two main purposes:
+
+\begin{itemize}
+	\item Simulation model: can simulate data under user-specified conditions and run replicated data sets under the Bayesian model to observe the behavior of the system under random realizations of simulated data.
+	\item Posterior inference model: can use actual, observed data from the field,  run it through the Bayesian model,  and make inference on parameter(s) of interest using the posterior distribution(s).
+\end{itemize}
+
+The outputs of interest if the model is used as a simulation model can be found in Table \ref{tab:simoutputs}.
+
+\begin{table}[h!]
+	\centering
+	\caption{Outputs from either the \texttt{EpiBayes\_ns} or \texttt{EpiBayes\_s} models if used as simulation-type models. These are, generally, frequencies of various behaviors of cluster-level prevalences among replicated data sets.}
+	\label{tab:simoutputs}
+	\rowcolors{2}{tabgray}{white} 
+	\begin{tabular}{l p{2.25in} p{2.25in}}
+		\toprule
+		 Statistic & Meaning & Short Meaning \\
+		 \midrule
+		 \texttt{p2.tilde} & Proportion of replicated data sets that result in probabilities of seeing cluster-level prevalences below \texttt{tau.thresh} with \texttt{p1} probability & Probability of non-detection or disease-freedom \\
+		 \texttt{p4.tilde} & Proportion of replicated data sets that result in probabilities of seeing cluster-level prevalences above \texttt{tau.thresh} with \texttt{p1} probability & Probability of detection or disease \\
+		 \texttt{p6.tilde} & Proportion of replicated data sets that result in probabilities of seeing cluster-level prevalences in the interval (\texttt{tau.lb}, \texttt{tau.ub}) with \texttt{p1} probability & Probability of prevalence falling in the interval \\
+		 \bottomrule
+	\end{tabular}
+\end{table}
+
+In the case of using he model as either a simulation or a posterior inference model, we might wish to investigate the posterior distributions of various parameters returned by the functions implementing our models. In order to manipulate these posterior distributions, we make use of the \texttt{coda} package in R, which is a standard package for post-processing of MCMC output. 
+
+Both of the models deal with the same set of variables, which can be found in Table \ref{tab:modelvars}.
+
+\begin{table}[h!]
+	\centering
+	\caption{Variables involved in both models \texttt{EpiBayes\_ns} and \texttt{EpiBayes\_s}. The naming convention "*mat" (where * is a wildcard) is for consistency between models since most of these variables truly are stored as matrices in the storage model, \texttt{EpiBayes\_s}.}
+	\label{tab:modelvars}
+	\rowcolors{2}{tabgray}{white} 
+	\begin{tabular}{l p{2.25in} p{2.25in}}
+		\toprule
+		 Variable & (3-level) Description & (2-level) Description \\
+		 \midrule
+		 \texttt{omegamat} & Probability of disease being in the region & Not used \\
+		 \texttt{gammat} & Subzone-level (between subzone) prevalence & Probability of disease being in the region \\
+		 \texttt{z.gammat} & Subzone-level (between subzone) prevalence latent indicator variable & Not used \\
+		 \texttt{taumat} & Cluster-level (between-cluster) prevalence & Same as (3-level) \\
+		 \texttt{z.taumat} & Cluster-level (between-cluster) prevalence latent indicator variable & Same as (3-level) \\
+		 \texttt{pimat} & Subject-level (within-cluster) prevalence & Same as (3-level) \\
+		 \texttt{z.pimat} & Subject-level (within-cluster) prevalence latent indicator variable & Same as (3-level) \\
+		 \texttt{mumat} & Mean prevalence among infected clusters & Same as (3-level) \\
+		 \texttt{psimat} & (Related to) variability of prevalence among infected clusters (inversely related so higher psi $\rightarrow$ lower variance of prevalences among diseased clusters) & Same as (3-level) \\
+		 \texttt{etamat} & Diagnostic test sensitivity & Same as (3-level) \\
+		 \texttt{thetamat} & Diagnostic test specificity & Same as (3-level) \\
+		 \texttt{c1mat} & Latent count of true positive diagnostic test results & Same as (3-level) \\
+		 \texttt{c2mat} & Latent count of true negative diagnostic test results & Same as (3-level) \\
+		 \bottomrule
+	\end{tabular}
+\end{table}
+
+In addition, both models also have the same arguments. These are described in Table \ref{tab:modelargs}. We include this to give the user a single place to reference the computational attributes of the arguments as well as English descriptions of the inputs.
+
+\begin{table}[h!]
+	\centering
+	\caption{Arguments for the function \texttt{HM\_2ns} in the order in which they appear by default. We also include the attributes of each of the arguments so the user has a single place to reference when the type of input is questioned in practice.}
+	\label{tab:modelargs}
+	\rowcolors{2}{tabgray}{white} 
+	\begin{tabular}{l p{1in} p{4in}}
+		\toprule
+		 Argument & Attributes & Description \\
+		 \midrule
+		 \texttt{H} & integer scalar & number of subzones/states/HUC's \\
+		 \texttt{k} & \tablebreak{\rowcolor{tabgray} integer vector \\ (\texttt{H} $\times$ 1)} & number of clusters / farms / ponds / herds \\
+		 \texttt{n} & \tablebreak{\rowcolor{white} integer vector \\ (\texttt{sum(k)} $\times$ 1)} & number of subjects / animals / mussels / pigs per cluster (can differ among clusters) \\
+		 \texttt{seasons} & \tablebreak{\rowcolor{tabgray} integer vector \\ (\texttt{sum(k)} $\times$ 1)} & numeric season for  each cluster in the order: Summer (1),  Fall (2),  Winter (3),  Spring (4) \\
+		 \texttt{reps} & integer scalar & number of (simulated) replicated data sets \\
+		 \texttt{MCMCreps} & integer scalar & number of iterations in the MCMC chain per replicated data set \\
+		 \texttt{poi} & character scalar & p(arameter) o(f) i(nterest) specifies one of the subzone-level prevalence (\texttt{gam}) or the cluster-level prevalence (\texttt{tau}), indicating which variable with which to compute the simulation output \texttt{p2.tilde}, \texttt{p4.tilde}, and \texttt{p6.tilde} \\
+		 \texttt{y} & \tablebreak{\rowcolor{tabgray} integer matrix \\ (\texttt{reps} $\times$ \texttt{sum(k)})} & an optional input of sums of positive diagnostic testing results if  one has a specific set of diagnostic testing outcomes for  every subject (will simulate these if  this is left as \texttt{NULL}) \\
+		 \texttt{mumodes} & \tablebreak{\rowcolor{white} real matrix \\ (4 $\times$ 2)} & modes and (a) 95th percentiles for  mode $<=$  0.50 or (b) 5th percentiles for  mode $>$ 0.5 for  season-specific mean prevalences for  diseased clusters in the order: Summer,  Fall,  Winter,  Spring \\
+		 \texttt{poi.thresh} & real scalar & Threshold that we must show \texttt{poi} prevalence is below to declare disease freedom \\
+		 \texttt{tau.T} & real scalar & assumed true cluster-level prevalence (used to simulate data to feed into the Bayesian model) \\
+		 \texttt{poi.lb} / \texttt{poi.ub} & real scalars & lower and upper bounds for posterior \texttt{poi} prevalences to show ability to capture \texttt{poi} with certain probability \\
+		 \texttt{p1} & real scalar & probability we must show prevalence is below / above the threshold \texttt{tau.thresh} or within specified bounds \\
+		 \texttt{psi} & real scalar & (inversely related to) the variability of the subject-level prevalences in diseased clusters \\
+		 \texttt{*parm(*,  *)} & \tablebreak{\rowcolor{white} real vector \\ (2 $\times$ 1)} & the rest of the model inputs in the form *parm(*,  *) are the prior parameters for  variable  *  where  *  can be one of: \texttt{omega}, \texttt{gam},   \texttt{tau}, \texttt{eta},  \texttt{theta} \\
+		 \texttt{burnin} & integer scalar & number of MCMC iterations to discard from the beginning of the chain \\
+		 \bottomrule
+	\end{tabular}
+\end{table}
+
+
+Next, we will delve into the output of models (a) and (b) separately (though there will be some overlap).
+	
+%===========================================================================================%
+%No Storage Model
+\subsection{No Storage Model} \label{subsect:No Storage Model}
+
+The so-called no storage model, \texttt{EpiBayes\_ns}, has the arguments as described in Table \ref{tab:modelargs}.
+
+The outputs that we can garner from the no storage model are just the bare bones needed to interpret the results in terms of the problem and does not include much in the way of output that can be used to rigorously check for model fit or MCMC convergence properties. From this model, we get the simulation results from Table \ref{tab:simoutputs} and the posterior distribution of the cluster-level prevalence. We include the attributes of these outputs in Table \ref{tab:nostorageoutputs}.
+
+\begin{table}[h!]
+	\centering
+	\caption{Output values from the no storage model and their attributes. Mainly important for reference of the size of the \texttt{taumat} matrix to make investigation more straightforward when calling \texttt{coda} functions for clean post-processing.}
+	\label{tab:nostorageoutputs}
+	\rowcolors{2}{tabgray}{white} 
+	\begin{tabular}{l p{1.5in}}
+		\toprule
+		 Output Variable & Attributes \\
+		 \midrule
+		 \texttt{p2.tilde} & real scalar \\
+		 \texttt{p4.tilde} & real scalar \\
+		 \texttt{p6.tilde} & real scalar \\
+		 \texttt{taumat} & \tablebreak{\rowcolor{tabgray} real matrix \\ (\texttt{reps} $\times$ H $\times$ \texttt{MCMCreps})} \\
+		 \bottomrule
+	\end{tabular}
+\end{table}
+
+%===========================================================================================%
+%Storage Model
+\subsection{Storage Model} \label{subsect:Storage Model}
+
+The storage model, \texttt{EpiBayes\_s}, has the arguments as described in Table \ref{tab:modelargs}. The outputs from the model are more comprehensive and posterior distributions can be referenced for all variables listed in Table \ref{tab:modelvars}. We include the attributes of these matrices output by the storage model for easy reference when manipulating the output in practice. Also in this model, we can access the simulation-based output as before. 
+
+\begin{table}[h!]
+	\centering
+	\caption{Output values from the no storage model and their attributes. Mainly important for reference of the size of the \texttt{taumat} matrix to make investigation more straightforward when calling \texttt{coda} functions for clean post-processing.}
+	\label{tab:storageoutputs}
+	\rowcolors{2}{tabgray}{white} 
+	\begin{tabular}{l p{2.5in}}
+		\toprule
+		 Output Variable & Attributes \\
+		 \midrule
+		 \texttt{p2.tilde} & real scalar \\
+		 \texttt{p4.tilde} & real scalar \\
+		 \texttt{p6.tilde} & real scalar \\
+		 \texttt{taumat} & \tablebreak{\rowcolor{tabgray} real matrix \\ (\texttt{reps} $\times$ H $\times$ \texttt{MCMCreps})} \\
+		 \texttt{gammat} & \tablebreak{\rowcolor{white} real matrix \\ (\texttt{reps} $\times$ \texttt{MCMCreps})} \\
+		 \texttt{omegamat} & \tablebreak{\rowcolor{tabgray} real matrix \\ (\texttt{reps} $\times$ \texttt{MCMCreps})} \\
+		 \texttt{z.gammat} & \tablebreak{\rowcolor{white} real matrix \\ (\texttt{reps} $\times$ \texttt{MCMCreps})} \\
+		 \texttt{z.taumat} & \tablebreak{\rowcolor{tabgray} real matrix \\ (\texttt{reps} $\times$ H $\times$ \texttt{MCMCreps})} \\
+		 \texttt{pimat} & \tablebreak{\rowcolor{white} real array \\ (\texttt{reps} $\times$ \texttt{sum(k)} $\times$ \texttt{MCMCreps})} \\
+		 \texttt{z.pimat} & \tablebreak{\rowcolor{tabgray} real array \\ (\texttt{reps} $\times$ \texttt{sum(k)} $\times$ \texttt{MCMCreps})} \\
+		 \texttt{mumat} & \tablebreak{\rowcolor{white} real matrix \\ (\texttt{reps} $\times$ 4 $\times$ \texttt{MCMCreps})} \\
+		 \texttt{psimat} & real scalar \\
+		 \texttt{etamat} & \tablebreak{\rowcolor{white} real matrix \\ (\texttt{reps} $\times$ \texttt{MCMCreps})} \\
+		 \texttt{thetamat} & \tablebreak{\rowcolor{tabgray} real matrix \\ (\texttt{reps} $\times$ \texttt{MCMCreps})} \\
+		 \texttt{c1mat} & \tablebreak{\rowcolor{white} real array \\ (\texttt{reps} $\times$ \texttt{k} $\times$ \texttt{MCMCreps})} \\
+		 \texttt{c2mat} & \tablebreak{\rowcolor{tabgray} real array \\ (\texttt{reps} $\times$ \texttt{k} $\times$ \texttt{MCMCreps})} \\
+		 \texttt{mumh.tracker} & \tablebreak{\rowcolor{white} real matrix \\ (\texttt{reps} $\times$ 4)} \\
+		 \texttt{y} & \tablebreak{\rowcolor{tabgray} real matrix \\ (\texttt{reps} $\times$ \texttt{sum(k)})} \\
+		 \bottomrule
+	\end{tabular}
+\end{table}
+
+%===========================================================================================%
+%Brief Look at Posterior Distributions
+\subsection{Brief Look at Posterior Distributions} \label{subsect:Brief Look at Posterior Distributions}
+
+Note, one needs to be careful about the size of each of the arrays you are calling. The last index of any of the variables from above is the MCMC replications and so we would typically always omit the last index when looking at any particular variable. Let's take two examples, one looking at the cluster-level prevalence and the other looking at subject-level prevalences.
+
+If  we want to look at the posterior distribution of the cluster-level prevalence (\texttt{taumat}) for  the first replication,  we will note that \texttt{taumat} is a matrix with rows indexed by replication and columns by MCMC replications. Then,  we will type something like 
+
+<<eval=FALSE>>=
+name_of_your_model$taumat[1, 1, ]
+@
+
+\noindent in order to visually inspect the posterior distribution in the form of a vector. For the second replication, we can type 
+
+<<eval=FALSE>>=
+name_of_your_model$taumat[2, 1, ]
+@
+
+\noindent and so forth. Then, we can make histograms of these distributions if  we so desire by the following code: 
+
+<<eval=FALSE>>=
+hist(name_of_your_model$taumat[1, 1, ], col = "cyan");box("plot")
+@
+
+To observe a trace plot,  we can type: 
+
+<<eval=FALSE>>=
+plot(name_of_your_model$taumat[1, 1, ], type = "l")
+@
+
+\noindent for  all of the MCMC replications and we can look at the trace plot after a burn-in of 1000 iterations by typing: 
+
+<<eval=FALSE>>=
+plot(name_of_your_model$taumat[1, 1, -c(1:1000)], type = "l")
+@
+
+If we want to look at the posterior distribution for the subject-level prevalence (\texttt{pi}) for the tenth replication in the third cluster,  we would type 
+
+<<eval=FALSE>>=
+name_of_your_model$pimat[10, 1, ]
+@
+
+\noindent since the matrix containing the posterior distributions for  the subject-level prevalences are indexed by replications in the first dimension,  clusters in the second,  and MCMC replications in the third. We can make histograms and trace plots using the same code as from the example code involving \texttt{taumat}.
+
+%===========================================================================================%
+% Bibliography
+%===========================================================================================%
+
+\clearpage
+
+\begin{thebibliography}{1}
+	\bibitem{Branscum_2006} Branscum, A., Johnson, W. and Gardner, I. Sample size calculations for disease freedom and prevalence estimation surveys. \textit{Statistics in Medicine 25} (2006), 2658-2674.
+\end{thebibliography}
+
+
+
+
+\end{document}

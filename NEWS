@@ -1,0 +1,28 @@
+Tracking changes between versions of package EpiBayes
+
+--------------------------------
+Version 0.1.2: 6/23/2015
+--------------------------------
+
+	# Minor updates including creation of utils_ functions:
+		# utils_newalphbet() for location shift of beta distribution
+		# utils_mumhproposaldist() and utils_mumhtargetdist() for the proposal and target distributions for mu in the MH steps in the hybrid Gibbs sampler executed by the EpiBayes_ns() and EpiBayes_s() functions
+
+--------------------------------
+Version 0.1.1: 6/16/2015
+--------------------------------
+	
+	# MAJOR UPDATE: Main functions EpiBayes_ns() and EpiBayes_s() now calculate latent indicator variables for the prevalences at the various sampling levels while taking the design prevalence at those respective levels into account
+	# Updated vignettes
+	# Updated calculations of p2.tilde, p4.tilde, and p6.tilde in EpiBayes_ns() (now calculates with burnin) and EpiBayes_s() (now calculates correctly)
+	# Fixed issue with summary.eb() where it would return an error if n.output > reps. Now detects the issue and returns 10 reps' summary statistics instead
+	# summary.eb() now prints output by default
+	# EpiBayes_ns() and EpiBayes_s() now check for size of y matrix to be correct
+
+--------------------------------
+Version 0.1.0: 6/2/2015
+--------------------------------
+
+	# First release of minor version to Dropbox
+	# Includes all relevant functions and methods for basic computations
+	

@@ -1,0 +1,398 @@
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{Disease Freedom with EpiBayes}
+
+\documentclass[11pt]{article}
+
+%Packages =====================================================%
+\usepackage[table,usenames,dvipsnames]{xcolor} %For colors! (loaded before other packages so it works properly)
+%\usepackage{amsmath,amsthm,amssymb,mathtools,mathabx}
+\usepackage[left=1in,right=1in,top=1in,bottom=1in,headsep=0.2in]{geometry}
+%\usepackage{aliascnt}
+\usepackage[hyperfootnotes=false,colorlinks=true,linkcolor=blue,citecolor=magenta,linktoc=page]{hyperref}
+\usepackage{titling}
+\usepackage{datetime}
+\usepackage{booktabs} %For book-like tables
+\usepackage{caption} %For nice caption spacing
+%\usepackage{arydshln} %For dashed/dotted lines in tables and arrays
+%\usepackage{pdflscape} %For landscape tables
+%\usepackage{afterpage} %To eliminate extra page problem with landscape tables
+%\usepackage{url} %For nice formatting of URL's
+%\usepackage{subcaption} %For captions within subfigures
+%\usepackage{multicol} %For multiple columns on a page/in environments
+%\usepackage{tikz} %For drawing
+%\usepackage{Sweave}
+
+%To do notes for easy editing =====================================================%
+%\usepackage[draft]{todonotes}
+%\usepackage[disable]{todonotes} %Disables todonotes
+
+%Renew commands =====================================================%
+\renewcommand{\bar}{\widebar}
+\renewcommand{\hat}{\widehat}
+\renewcommand{\tilde}{\widetilde}
+\renewcommand\arraystretch{1.3}% (MyValue=1.0 is for standard spacing)
+%\renewcommand[1]{\section}{\section #1 \label #1}
+\newcommand{\newpropto}{~ \propto ~}
+
+%New commands =====================================================%
+\newcommand{\probrightarrow}{\xrightarrow[n\rightarrow\infty]{P}}
+\newcommand{\distrightarrow}{\xrightarrow[n\rightarrow\infty]{d}}
+\newcommand{\norm}[1]{\lvert \lvert #1 \rvert \rvert}
+\newcommand{\bs}{\boldsymbol}
+\newcommand{\tablebreak}[2][c]{\begin{tabular}[#1]{@{}l@{}}#2 \end{tabular}} %For multiple lines within a table cell
+%\newcommand*{\medcap}{\mathbin{\scalebox{1.5}{\ensuremath{\cap}}}} %For making \cap a more attractive size
+\newcommand\numberthis{\addtocounter{equation}{1}\tag{\theequation}} %For numbering specific equations in align*
+%\newcommand{\myplus}{\mathord{\begin{tikzpicture}[baseline=0ex, line width=2, scale=0.13] \draw (1,0) -- (1,2); \draw (0,1) -- (2,1); \end{tikzpicture}}} %Custom plus sign (bolded)
+%\newcommand{\myminus}{\mathord{\begin{tikzpicture}[baseline=0ex, line width=2, scale=0.13] \draw (0,1) -- (2,1); \end{tikzpicture}}} %Custom minus sign (bolded)
+%
+%\newcommand\mycaption[2]{\def\captiontemp{#2}\caption[#1]{\protect\captiontemp}}
+
+%%Operators =====================================================%
+%\DeclareMathOperator{\tr}{tr}
+%\DeclareMathOperator{\Var}{Var}
+%\DeclareMathOperator{\SD}{SD}
+%\DeclareMathOperator{\SE}{SE}
+%\DeclareMathOperator{\VIF}{VIF}
+%\DeclareMathOperator{\SSE}{SSE}
+%\DeclareMathOperator{\SSR}{SSR}
+%\DeclareMathOperator{\SST}{SST}
+%\DeclareMathOperator{\MSE}{MSE}
+%\DeclareMathOperator{\Bias}{Bias}
+%\DeclareMathOperator{\Length}{Length}
+%\DeclareMathOperator{\Cov}{Cov}
+%\DeclareMathOperator{\Cor}{Cor}
+%\DeclareMathOperator{\ARE}{ARE}
+%\DeclareMathOperator{\argmax}{arg\,max}
+%
+%%Pre-document declarations =====================================================%
+%\definecolor{tabgray}{gray}{0.9} %Color for tables
+%\setlength\dashlinedash{2pt} %Dashed line dot size
+%\setlength\dashlinegap{2.0pt} %Dashed line gap size
+%
+%%Define some colors from http://www.colorcombos.com/color-schemes
+%%\definecolor{hawkesblue}{HTML}{CEEBFB}
+%%\definecolor{sailblue}{HTML}{A3D6F5}
+%\definecolor{fountainblue}{HTML}{66A7C5}
+%\definecolor{lightblue}{HTML}{3862C6} %{020731} %{67C5C2}
+%\definecolor{pomegranate}{HTML}{C84127} %{EE3233}
+%\definecolor{ebb}{HTML}{F0ECEB}
+%\definecolor{nevada}{HTML}{B4A28F}%{7C7062}%{6C7476}
+%\definecolor{goblin}{HTML}{41924B}
+%\definecolor{goldensun}{HTML}{FDB813}
+%\definecolor{cedar}{HTML}{3D2117}
+%\definecolor{charcoal}{HTML}{473E3F}
+%\definecolor{coneorange}{HTML}{FF7221}
+%\definecolor{tabgray}{gray}{0.9} %Color for tables
+
+%\allowdisplaybreaks
+
+%===========================================================================================%
+%Begin document
+%===========================================================================================%
+
+\begin{document}
+
+%Title setup =====================================================%
+\setlength{\droptitle}{-1in}
+\pretitle{\begin{flushright}\LARGE}
+\posttitle{\end{flushright}}
+\preauthor{\begin{flushright}}
+\postauthor{\end{flushright}}
+\predate{\begin{flushright}\large}
+\postdate{\end{flushright}}
+
+\usdate %Format date to be: Month Day, Year 
+
+\title{EpiBayes 3-Level Models Vignette}
+\author{Matt Branan}
+\date{Updated: \today}
+
+\maketitle
+
+<<setup, include=FALSE>>=
+library(knitr)
+opts_chunk$set(cache=TRUE, autodep=TRUE, fig.width=5, fig.height=5)
+@
+
+%===========================================================================================%
+%Setting up the Models in R
+%===========================================================================================%
+\section{Setting up the Models in R} 
+\label{sect:Setting up the Models in R}
+
+Run this code once to load the proper packages.
+
+<<package_loading, hide=TRUE, error=FALSE, warning=FALSE, message=FALSE>>=
+library(epiR)  # For the BetaBuster function
+library(compiler)  # To compile the larger functions for computational speed
+library(coda)  # For processing Bayesian model output
+library(shape)  # For nice colorbar legends
+library(scales)  # For transparent colors
+library(EpiBayes)  # Load our package
+@
+
+Next, we will use the hierarchical Bayesian model to investigate a 3-level sampling design in which we have one region with three subzones of interest. Two subzones have ten farms sampled and we sample 100 cows a piece and the third subzone has fifty clusters sampled with 100 cows sampled a piece. We implement the storage model, \texttt{EpiBayes\_s}, to investigate the posterior distributions of the cluster-level prevalences after one year of sampling in which we see only the third subzone infected in which we see ten farms with ten infected cows and fifteen farms with fifteen cows infected. 
+
+We also use the \texttt{EpiBayesHistorical} function and its methods to investigate the ways we may combine several years' information into one statement about the cluster-level prevalence of the disease under investigation.
+
+%===========================================================================================%
+%Examples
+%===========================================================================================%
+\section{Examples} 
+\label{sect:Examples}
+
+%===========================================================================================%
+%Example 1: 3-Level Posterior Inference
+\subsection{Example 1: 3-Level Posterior Inference} 
+\label{subsect:Example 1: 3-Level Posterior Inference}
+
+Consider visiting a region in which there are three subzones (could be states) of interest. Two of the subzones have ten farms sampled, and we sample 100 cows per farm. The third subzone has fifty sampled farms with 100 cows sampled on each. All of the sampling during this year was done in the Fall. During this season, the average subject-level prevalence of the disease is about 10\%. We specify that the disease is somewhere in the region and that we expect about 40\% of the subzones to be infected and the sensitivity and specificity of the diagnostic test used is around 90\%.
+
+When we go out and sample our cows, we find the first two subzones to have no animals infected by our diagnostic testing procedure, but find ten farms with ten infected cows and fifteen farms with fifteen infected cows in the third subzone.
+
+First, we construct a matrix with a single row that demonstrates the outcomes of our observations. 
+Once the prior distributions have been decided upon, we may call the actual model -- we'll be using the storage model in this case just so we can check some of the posterior distributions if we would like to. The function call will look something like the following. We have included annotations next to each argument so that it is clear what each argument is and why it had been initialized as such.
+
+<<example1_obsmat, eval = TRUE>>=
+obs.y = matrix(c(
+		rep(0, 10),  # Subzone 1
+		rep(0, 10),  # Subzone 2
+		rep(10, 10), rep(15, 15), rep(0, 25)  # Subzone 3
+		),
+		nrow = 1
+	)
+
+@
+
+<<example1_run, eval=TRUE>>=
+set.seed(2015)  # To ensure reproducible results
+example1.run = EpiBayes_s(
+    H = 3,  # 3 subzones
+    k = c(rep(10, 2), rep(50, 1)),  # 10 farms in two subzones, 50 in 
+    	# the third subzone
+    n = rep(100, 70),  #100 cows sampled in each of the 70 clusters
+    seasons = rep(2, 70),  # Seasons corresponding to each cluster 
+    	# (1 for  summer,  2 for  fall,  3 for  winter,  4 for  spring)
+	mumodes = matrix(c(
+		0.10, 0.50, 
+		0.10, 0.50, 
+		0.10, 0.50, 
+		0.10, 0.50
+		), 4, 2, byrow = TRUE
+	), # Modes and 95th percentiles of 
+    	# subject - level prevalences for  each season in order
+    reps = 1,  # 1 replicated data set in this simulation
+    MCMCreps = 100,  # 100 MCMC iterations per replicated data 
+    	# set (increasing this would be a good idea for  real data but slows
+	#  things down a lot) 
+    poi = "tau",  # Want inference on cluster-level prevalence
+    y = obs.y,  # Specify the number of positive test results we saw for each farm
+    pi.thresh = 0.05,  # The 5% threshold (design prevalence) for  the 
+    	# cluster - level prevalence 
+    tau.thresh = 0.02,  # The 2% threshold (design prevalence) for  the 
+    	# cluster - level prevalence 
+    gam.thresh = 0.01,  # The 1% threshold (design prevalence) for  the 
+    	# cluster - level prevalence 
+    tau.T = 0.20,  # The "true cluster - level prevalence" that we simulate our 
+    	# data with (this means about 20% of our clusters in each replicated 
+	# data set will be diseased and will have a truly positive 
+	# subject - level prevalence)
+    poi.lb = 0,  # The lower bound for  estimating the cluster - level 
+    	# prevalence (not of interest here)
+    poi.ub = 1,  # The upper bound for  estimating the cluster - level 
+    	# prevalence (not of interest here)
+    p1 = 0.95,  # The probability (used like a confidence) that we must show 
+    	# our cluster - level prevalence is above 2% in order to count that 
+	# replicated data set as one in which we detected the disease
+    psi = 4,  # The variability of the prevalences among infected clusters within 
+    	# the subzone
+    omegaparm = c(1000, 1),  # Prior parameters for omegamat (the probability 
+    	# of the disease being in the region)
+    gamparm = c(20, 30),  # Prior parameters for  gammat (the subzone-level 
+    	# prevalence)
+    tauparm = c(1, 1),  # Prior parameters for  taumat (the cluster - level 
+    	# prevalence)
+    etaparm = c(10, 1),  # Prior parameters for  etamat (the diagnostic 
+    	# test sensitivity)
+    thetaparm = c(10, 1),  # Prior parameters for  thetamat (the diagnostic 
+    	# test specificity)
+    burnin = 10  # The amount of MCMC iterations to "burn"
+    )
+
+@
+
+We can investigate the output using the \texttt{summary} and \texttt{plot} methods for the output object type just like we had in the 2-level vignette examples. The only difference here is that we have more parameters to investigate (specifically, more subject-level and cluster-level prevalences and a new subzone-level prevalence to observe). Here, since we have only one replication (the supplied observed data in the \texttt{obs.y} matrix) then we don't really need to concern ourselves with the simulation output values from the summary output.
+
+<<example1_summary, eval = TRUE>>=
+## Summary
+example1.sum = summary(example1.run)
+example1.sum
+
+## Plot the posterior distributions of cluster-level prevalence 
+plot(example1.run)
+
+@
+
+We can also look at some trace plots and posterior distribution density estimates for some of the \texttt{taumat} and some of the \texttt{pimat} chains. Notice that we have eliminated the burnin iterations that we had defined in the \texttt{EpiBayes\_s} function call.
+
+<<example1_traceplots, eval = TRUE>>=
+## Trace plots
+
+## Tau
+	# Tau for the first subzone
+	plot(example1.run$taumat[1, 1, -c(1:10)], type = "l")
+	# Tau for the second subzone
+	plot(example1.run$taumat[1, 2, -c(1:10)], type = "l") 
+	# Tau for the third subzone
+	plot(example1.run$taumat[1, 3, -c(1:10)], type = "l") 
+
+## Pi
+	# Pi for the first farm in the first subzone
+	plot(example1.run$pimat[1, 1, -c(1:10)], type = "l") 
+	# Pi for the tenth farm in the first subzone
+	plot(example1.run$pimat[1, 10, -c(1:10)], type = "l") 
+	# Pi for the first farm in the second subzone
+	plot(example1.run$pimat[1, 11, -c(1:10)], type = "l") 
+	# Pi for the first farm in the third subzone
+	plot(example1.run$pimat[1, 21, -c(1:10)], type = "l") 
+	# Pi for the fiftieth farm in the third subzone
+	plot(example1.run$pimat[1, 70, -c(1:10)], type = "l") 
+
+## Histograms
+
+## Tau
+	# Tau for the first subzone
+	plot(density(example1.run$taumat[1, 1, c(1:10)], from = 0, to = 1)) 
+
+## Pi
+	# Pi for the first farm in the first subzone
+	plot(density(example1.run$pimat[1, 1, c(1:10)], from = 0, to = 1))
+
+@
+
+%===========================================================================================%
+%Example 2: Historical Updating
+\subsection{Example 2: Historical Updating} 
+\label{subsect:Example 2: Historical Updating}
+
+Suppose that we have a the same situation as in Example 1 but now we have a different objective. Instead of making posterior inference about the disease prevalences at various levels in the hierarchical sampling procedure, we would like to determine how one may aggregate data across time periods. For example, we could have performed the sampling mentioned in Example 1 in 2010, but we also have sampling data from 2011-2014 as well. Ignoring introduction risk, and using the posterior distribution for the cluster-level prevalence for the prior for the same parameter in the next year and carrying this forward for all of the years of data we have, we can combine our yearly data into an overall statement about the cluster-level prevalence at the end of 2014. 
+
+First, we must construct our matrix of observed data. We need to construct a matrix such that every row denotes a cluster and we have columns: Year (or, equivalently, period of collection), Subzone, Cluster size, Season (1-4), and Y (the number of positive diagnostic test results in that cluster).
+
+We already have the 2010 data so we'll just need to 'observe' four more years of data.
+
+<<example2_inputmat, eval = TRUE>>=
+year = rep(c(2010:2014), each = 70)
+subz = rep(rep(c("First", "Second", "Third"), c(10, 10, 50)), 5)
+size = rep(100, 70*5)
+season = rep(2, 70*5)
+y = matrix(c(
+		rep(0, 10), #Year 2010: Subzone 1
+		rep(0, 10), #Year 2010: Subzone 2
+		rep(10, 10), rep(15, 15), rep(0, 25), #Year 2010: Subzone 3
+		rep(2, 10), #Year 2011: Subzone 1
+		rep(0, 10), #Year 2011: Subzone 2
+		rep(5, 10), rep(10, 15), rep(0, 25), #Year 2011: Subzone 3
+		rep(0, 10), #Year 2012: Subzone 1
+		rep(4, 10), #Year 2012: Subzone 2
+		rep(0, 10), rep(5, 15), rep(0, 25), #Year 2012: Subzone 3
+		rep(8, 10), #Year 2013: Subzone 1
+		rep(0, 10), #Year 2013: Subzone 2
+		rep(0, 10), rep(0, 15), rep(0, 25), #Year 2013: Subzone 3
+		rep(4, 10), #Year 2014: Subzone 1
+		rep(0, 10), #Year 2014: Subzone 2
+		rep(0, 10), rep(0, 15), rep(0, 25) #Year 2014: Subzone 3
+		),
+		ncol = 1
+	)
+	
+example2.inputdf = data.frame(year, subz, size, season, y)
+
+@
+
+<<example2_run, eval=TRUE>>=
+set.seed(2015)
+example2.run = EpiBayesHistorical(
+	input.df = example2.inputdf,  # Our input matrix
+	orig.tauparm = c(1, 1),  # tau prior parameters in the first year
+	burnin = 1,  # Number of MCMC iterations to burn
+	MCMCreps = 10,  # Number of MCMC iterations
+	tau.T = 0.2,  # Doesn't matter since reps = 1
+	poi = "tau",  # Leave parameter of interest as cluster-level prevalence
+	mumodes = matrix(c(
+		 0.10, 0.50, 
+		 0.10, 0.50, 
+		 0.10, 0.50, 
+		 0.10, 0.50
+		 ), 4, 2, byrow = TRUE
+	 ),# Season-specific average subject-level 
+		# prevalences in infected clusters 
+         pi.thresh = 0.05,  # The 5% threshold (design prevalence) for  the 
+    		# cluster - level prevalence 
+         tau.thresh = 0.02,  # Doesn't matter since reps = 1
+         gam.thresh = 0.01,  # Doesn't matter since reps = 1
+	poi.lb = 0,  # Doesn't matter since reps = 1
+	poi.ub = 1,  # Doesn't matter since reps = 1
+	p1 = 0.95,  # Doesn't matter since reps = 1
+	psi = 4,  # (related to) variability of subject-level prevalences in 
+		# infected clusters
+	omegaparm = c(1000, 1),  # Prior parameters for the probability of the
+		# disease being in the region (almost always 1)
+	gamparm = c(20, 30),  # Prior parameters for the subzone-level prevalence 
+		# (mean of about 0.4)
+	etaparm = c(10, 1),  # Prior parameters for diagnostic test sensitivity 
+		# (mean of about 0.9)
+	thetaparm = c(10, 1)  # Prior parameters for diagnostic test specificity 
+		# (mean of about 0.9)
+	)
+	
+@					
+
+We may observe the behavior of the posterior cluster-level prevalence distributions across years and for each subzone (each subzone gets its own plotting window) using the \texttt{plot} method for the historical function output. 
+
+<<example2_plot, eval = TRUE>>=
+## Plot the posterior distributions of cluster-level prevalence with 
+	# one plotting window for each subzone and colors ranging 
+	# across years
+plot(example2.run)
+
+@		
+
+We can also summarize the historical posterior distributions by observing the posterior means, quantiles, or variances for each subzone and track those summary statistics throughout the years. We can take those summaries and plot them as well.
+
+<<example2_summary, eval=TRUE>>=
+## Summaries
+	# By mean
+	example2.meansum = summary(example2.run, sumstat = "mean", 
+		time.labels = 2010:2014)
+	example2.meansum
+	
+	# By 95th percentiles
+	## Summaries
+	example2.95persum = summary(example2.run, sumstat = "quantile", 
+		prob = 0.95, time.labels = 2010:2014)
+	example2.95persum
+	
+## Plotting the summaries across time
+	# Plot means
+	plot(example2.meansum)
+	# Can add a line to compare to a certain design prevalence
+	abline(h = 0.05, lty = 2, col = "black", lwd = 2)  
+	
+	# Plot 95th percentiles
+	plot(example2.95persum)
+	# Can add a line to compare to a certain design prevalence
+	abline(h = 0.05, lty = 2, col = "black", lwd = 2)  
+
+@
+
+\textbf{Note}: The above examples are not meant to reflect reality. Notice that the \texttt{MCMCreps} in both examples are set very low. This would have been bad if executed in practice, but was set so in order to ensure quick build times for this vignette.
+
+
+
+
+\end{document}
+
+
+
+
